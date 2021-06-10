@@ -1201,9 +1201,17 @@ void ThreadedKFVio::display() {
     return;
   // draw
   for (size_t im = 0; im < parameters_.nCameraSystem.numCameras(); im++) {
-    std::stringstream windowname;
-    windowname << "OKVIS camera " << im;
-    cv::imshow(windowname.str(), out_images[im]);
+    if (debugImgCallback_) {
+      debugImgCallback_(lastOptimizedStateTimestamp_, im, out_images[im]);
+    }
+
+    if (parameters_.visualization.displayImages) {
+      std::stringstream windowname;
+      windowname << "OKVIS camera " << im;
+      if (!out_images[im].empty()) {
+        cv::imshow(windowname.str(), out_images[im]);  // Prevent crashes from display
+      }
+    }
   }
   cv::waitKey(1);
 }
@@ -1591,7 +1599,7 @@ void ThreadedKFVio::optimizationLoop() {
 
       }
 
-      if (parameters_.visualization.displayImages) {
+      if (parameters_.visualization.displayImages || debugImgCallback_) {
         // fill in information that requires access to estimator.
         visualizationDataPtr = VioVisualizer::VisualizationData::Ptr(
             new VioVisualizer::VisualizationData());
@@ -1643,7 +1651,7 @@ void ThreadedKFVio::optimizationLoop() {
     optimizationResults_.Push(result);
 
     // adding further elements to visualization data that do not access estimator
-    if (parameters_.visualization.displayImages) {
+    if (parameters_.visualization.displayImages || debugImgCallback_) {
       visualizationDataPtr->currentFrames = frame_pairs;
       visualizationData_.PushNonBlockingDroppingIfFull(visualizationDataPtr, 1);
     }

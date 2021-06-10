@@ -114,6 +114,11 @@ void VioInterface::setRelocRelativePoseCallback(const RelocRelativePoseCallback 
 	relocRelativePoseCallback_ = relocRelativePoseCallback;
 }
 
+// Hunter
+void VioInterface::setDebugImgCallback(const ImageCallback & imageCallback) {
+  debugImgCallback_ = imageCallback;
+}
+
 // Set the blocking variable that indicates whether the addMeasurement() functions
 // should return immediately (blocking=false), or only when the processing is complete.
 void VioInterface::setBlocking(bool blocking) {

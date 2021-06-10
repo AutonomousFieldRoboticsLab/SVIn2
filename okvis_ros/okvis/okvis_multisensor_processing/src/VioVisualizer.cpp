@@ -240,7 +240,9 @@ void VioVisualizer::showDebugImages(VisualizationData::Ptr& data) {
   for (size_t im = 0; im < parameters_.nCameraSystem.numCameras(); im++) {
     std::stringstream windowname;
     windowname << "OKVIS camera " << im;
-    cv::imshow(windowname.str(), out_images[im]);
+    if (!out_images[im].empty()) {
+      cv::imshow(windowname.str(), out_images[im]);  // Prevent crashes from display
+    }
 	cv::waitKey(1);
   }
 }

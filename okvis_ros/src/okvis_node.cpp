@@ -95,6 +95,11 @@ int main(int argc, char **argv)
   // Sharmin
   okvis_estimator.setKeyframeCallback(std::bind(&okvis::Publisher::publishKeyframeAsCallback,&publisher,std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
 
+  // Hunter
+  if (parameters.visualization.publishDebugImages) {
+    okvis_estimator.setDebugImgCallback(std::bind(&okvis::Publisher::publishDebugImageAsCallback, publisher, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+  }
+
   if (is_reloc){
       okvis_estimator.setRelocRelativePoseCallback(std::bind(&okvis::Publisher::publishRelocRelativePoseAsCallback,&publisher,std::placeholders::_1,
 		  std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));

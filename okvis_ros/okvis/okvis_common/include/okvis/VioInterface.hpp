@@ -99,6 +99,10 @@ class VioInterface {
           void(const okvis::Time &, const Eigen::Vector3d &, const Eigen::Quaterniond &,
         			const double &, const double &)> RelocRelativePoseCallback;
   // End Sharmin
+
+  // Hunter
+  typedef std::function<void(const okvis::Time &, int, const cv::Mat &)> ImageCallback;
+
   VioInterface();
   virtual ~VioInterface();
 
@@ -343,6 +347,8 @@ class VioInterface {
   // Sharmin
   virtual void setRelocRelativePoseCallback(const RelocRelativePoseCallback & relocRelativePoseCallback);
 
+  // Hunter
+  virtual void setDebugImgCallback(const ImageCallback & imageCallback);
 
   /**
    * \brief Set the blocking variable that indicates whether the addMeasurement() functions
@@ -371,6 +377,7 @@ class VioInterface {
   FullStateCallback fullStateCallback_; ///< Full state callback function.
   FullStateCallbackWithExtrinsics fullStateCallbackWithExtrinsics_; ///< Full state and extrinsics callback function.
   LandmarksCallback landmarksCallback_; ///< Landmarks callback function.
+  ImageCallback debugImgCallback_;  ///< Status callback function  // Hunter
 
   std::shared_ptr<std::fstream> csvImuFile_;  ///< IMU CSV file.
   std::shared_ptr<std::fstream> csvPosFile_;  ///< Position CSV File.
