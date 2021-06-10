@@ -1027,4 +1027,21 @@ void Publisher::publishPath()
   pubPath_.publish(path_);
 }
 
+void Publisher::publishDebugImageAsCallback(const okvis::Time & t, int i, const cv::Mat & image) {
+	// publish debug image
+	sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
+  msg->header.stamp = ros::Time(t.sec, t.nsec);
+  // TODO msg->header.frame_id
+
+  // Expand the number of publishers if needed
+  for (int j = pubDebugImage_.size(); j <= i; j++) {
+    std::stringstream topic;
+    topic << "debug_image_" << j;
+    pubDebugImage_.push_back(nh_->advertise<sensor_msgs::Image>(topic.str(), 10));
+  }
+
+  // pubDebugImage_[i].publish(msg);
+  pubDebugImage_[i].publish(msg);
+}
+
 }  // namespace okvis

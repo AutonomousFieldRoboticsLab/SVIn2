@@ -266,6 +266,9 @@ namespace okvis
     // Added by Sharmin
     void publishSteroPointCloud(std::vector<Eigen::Vector3d> stereoMatched);
 
+    // Hunter
+    void publishDebugImageAsCallback(const okvis::Time & t, int i, const cv::Mat & image);
+
     /// @}
 
   private:
@@ -337,6 +340,9 @@ namespace okvis
 
     // FIXME Sharmin: This is an easy hack to use this publisher as an extern
     ros::Publisher pubSvinHealth; // Sharmin: To publish SVIn2 health
+
+    // Hunter
+    std::vector<ros::Publisher> pubDebugImage_;
   };
 
 }

@@ -138,6 +138,11 @@ void VioParametersReader::readConfigFile(const std::string& filename) {
   OKVIS_ASSERT_TRUE(Exception, success,
                     "'displayImages' parameter missing in configuration file.");
 
+  // Hunter
+  success = parseBoolean(file["publishDebugImages"],
+                         vioParameters_.visualization.publishDebugImages);
+  if (!success) vioParameters_.visualization.publishDebugImages = false;  // Default to false for backwards compatibility
+
   // detection threshold
   success = file["detection_options"]["threshold"].isReal();
   OKVIS_ASSERT_TRUE(

@@ -298,6 +298,7 @@ struct SensorsInformation {
 /// @brief Some visualization settings.
 struct Visualization {
   bool displayImages; ///< Display images?
+  bool publishDebugImages; ///< Publish debug images // Hunter
 };
 
 enum class FrameName { B, S, W, Wc, So };   /// @Sharmin: So for Sonar
