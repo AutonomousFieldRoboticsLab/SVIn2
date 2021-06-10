@@ -29,7 +29,7 @@ SVIn2 is a tightly coupled Sonar-Visual-Inertial-Depth formulation of Simultaneo
             sudo apt-get install ros-kinetic-tf2-sensor-msgs
         
         
-        -- Driver for Sonar: git clone https://github.com/quattrinili/imagenex831l.git.
+        -- Driver for Sonar: git clone https://github.com/AutonomousFieldRoboticsLab/imagenex831l.
         
         -- Driver for Depth Sensor: aquacore has the driver for depth. If you want to install SVIn2 on your laptop/pc make sure you have the depth driver. 
         
