@@ -365,6 +365,10 @@ void VioParametersReader::readConfigFile(const std::string& filename) {
 
   // *****  End Sharmin: Additional config ******//
 
+  // Hunter: Resetable pose parameters
+  success = parseBoolean(file["isResetable"], vioParameters_.resetableParams.isResetable);
+  if (!success) vioParameters_.resetableParams.isResetable = false;  // Default to false for backwards compatibility
+
   // camera calibration
   std::vector<CameraCalibration,Eigen::aligned_allocator<CameraCalibration>> calibrations;
   if(!getCameraCalibration(calibrations, file))

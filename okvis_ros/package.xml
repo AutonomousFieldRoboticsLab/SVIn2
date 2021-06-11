@@ -33,5 +33,7 @@
   <depend>tf2_sensor_msgs</depend>
   <depend>message_generation</depend>
   <depend>message_runtime</depend>
-
+  <!-- Added by Hunter -->
+  <depend>std_srvs</depend>
+  <depend>nav_msgs</depend>
 </package>
