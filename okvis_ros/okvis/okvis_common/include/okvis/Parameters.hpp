@@ -317,6 +317,11 @@ struct PublishingParameters {
   FrameName velocitiesFrame = FrameName::B; ///< B or S,  the frames in which the velocities of the selected trackedBodyFrame will be expressed in
 };
 
+// Hunter
+struct ResetPoseParameters {
+  bool isResetable;
+};
+
 /// @brief Struct to combine all parameters and settings.
 struct VioParameters {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -340,6 +345,7 @@ struct VioParameters {
   ClaheParams claheParams;  ///< Sharmin: CLAHE Parameters
   MiscParams miscParams;  ///< Sharmin: contains misc parameters, e.g. opencv image resize factor
   SonarParameters sonar;  ///< Sharmin: sonar parameters (T_SSo)
+  ResetPoseParameters resetableParams;  ///< Hunter: Reset pose parameters
 };
 
 } // namespace okvis

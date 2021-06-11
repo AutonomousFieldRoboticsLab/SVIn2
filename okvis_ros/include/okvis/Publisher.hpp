@@ -141,6 +141,12 @@ namespace okvis
       parameters_ = parameters;
     }
 
+    /// \brief Set just T_Wc_W
+    /// @param parameters The parameters.
+    void setT_Wc_W(const okvis::kinematics::Transformation& T_Wc_W){
+      parameters_.publishing.T_Wc_W = T_Wc_W;
+    }
+
     /**
    * @brief Set the points that are published next.
    * @param pointsMatched Vector of 3D points that have been matched with existing landmarks.

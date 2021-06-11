@@ -20,6 +20,10 @@ find_package(catkin REQUIRED
 
   imagenex831l
   #aquacore #for aqua Depth topic
+
+  ## Added by Hunter
+  std_srvs
+  nav_msgs
 )
 
 # generate dynamic reconfigure stuff
@@ -30,10 +34,15 @@ add_message_files(
   FILES
   SvinHealth.msg
 )
+add_service_files(
+  FILES
+  OdometryTrigger.srv
+)
 generate_messages(
   DEPENDENCIES
   std_msgs
   geometry_msgs
+  nav_msgs
 )
 
 catkin_package(
@@ -47,6 +56,8 @@ catkin_package(
                    tf2_sensor_msgs
                    sensor_msgs
                    message_runtime
+                   std_srvs
+                   nav_msgs
     INCLUDE_DIRS include
     LIBRARIES ${PROJECT_NAME}
 )

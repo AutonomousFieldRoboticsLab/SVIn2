@@ -134,6 +134,11 @@ void Subscriber::setNodeHandle(ros::NodeHandle& nh)
   }
 }
 
+// Hunter
+void Subscriber::setT_Wc_W(okvis::kinematics::Transformation T_Wc_W) {
+  vioParameters_.publishing.T_Wc_W = T_Wc_W;
+}
+
 void Subscriber::imageCallback(const sensor_msgs::ImageConstPtr& msg,/*
  const sensor_msgs::CameraInfoConstPtr& info,*/
                                unsigned int cameraIndex)
@@ -204,25 +209,32 @@ void Subscriber::imuCallback(const sensor_msgs::ImuConstPtr& msg)
 void Subscriber::relocCallback(const sensor_msgs::PointCloudConstPtr &relo_msg)
 {
 	std::vector<Eigen::Vector3d> matched_ids;
+  okvis::kinematics::Transformation T_Wc_W = vioParameters_.publishing.T_Wc_W;
 	//double frame_stamp = relo_msg->header.stamp.toSec();
 	for (unsigned int i = 0; i < relo_msg->points.size(); i++)
 	{
 		//landmarkId, mfId/poseId, keypointIdx for Every Matched 3d points in Current frame
-		Eigen::Vector3d pt_ids;
+		Eigen::Vector4d pt_ids;
 		pt_ids.x() = relo_msg->points[i].x;
 		pt_ids.y() = relo_msg->points[i].y;
 		pt_ids.z() = relo_msg->points[i].z;
-		matched_ids.push_back(pt_ids);
+		pt_ids.w() = 1.0;
+    pt_ids = T_Wc_W.inverse() * pt_ids;  // Hunter: Transform reloc points
+		matched_ids.push_back(pt_ids.segment<3>(0));
 	}
 	Eigen::Vector3d pos(relo_msg->channels[0].values[0], relo_msg->channels[0].values[1], relo_msg->channels[0].values[2]);
 	Eigen::Quaterniond quat(relo_msg->channels[0].values[3], relo_msg->channels[0].values[4], relo_msg->channels[0].values[5], relo_msg->channels[0].values[6]);
 	//Eigen::Matrix3d relo_r = relo_q.toRotationMatrix();
 
+  // Hunter: Transform reloc pose
+  okvis::kinematics::Transformation pose_Wc(pos, quat);
+  okvis::kinematics::Transformation pose_W = T_Wc_W.inverse() * pose_Wc;
+
 	//estimator.setReloFrame(frame_stamp, frame_index, match_points, relo_t, relo_r);
 
 	vioInterface_->addRelocMeasurement(
 					  okvis::Time(relo_msg->header.stamp.sec, relo_msg->header.stamp.nsec),
-					  matched_ids, pos, quat);
+					  matched_ids, pose_W.r(), pose_W.q());
 }
 // @Sharmin
 /*
