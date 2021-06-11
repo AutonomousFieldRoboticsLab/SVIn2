@@ -207,6 +207,9 @@ void Publisher::publishKeyframeAsCallback(const okvis::Time & t, const cv::Mat &
 	sensor_msgs::fillImage(msg, sensor_msgs::image_encodings::MONO8, imageL.rows, imageL.cols, imageL.step.buf[0], imageL.data);
 	pubKeyframeImageL_.publish(msg);*/
 
+  const okvis::kinematics::Transformation & T_Wc_W = parameters_.publishing.T_Wc_W;
+  const okvis::kinematics::Transformation & T_WcCa = T_Wc_W * T_WCa;
+
 	// publish keyframe
 	sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", imageL).toImageMsg();
     msg->header.stamp = ros::Time(t.sec, t.nsec);
@@ -221,13 +224,13 @@ void Publisher::publishKeyframeAsCallback(const okvis::Time & t, const cv::Mat &
 	odometry.header.frame_id = "world";
 	odometry.header.stamp = ros::Time(t.sec, t.nsec);
     // fill orientation
-	Eigen::Quaterniond q = T_WCa.q();
+	Eigen::Quaterniond q = T_WcCa.q();
 	odometry.pose.pose.orientation.x = q.x();
 	odometry.pose.pose.orientation.y = q.y();
 	odometry.pose.pose.orientation.z = q.z();
 	odometry.pose.pose.orientation.w = q.w();
 	// fill position
-	Eigen::Vector3d r = T_WCa.r();
+	Eigen::Vector3d r = T_WcCa.r();
 	odometry.pose.pose.position.x = r[0];
 	odometry.pose.pose.position.y = r[1];
 	odometry.pose.pose.position.z = r[2];
@@ -263,11 +266,13 @@ void Publisher::publishKeyframeAsCallback(const okvis::Time & t, const cv::Mat &
 		std::vector<double> pt3d = *lit;
 		//std::cout<<"MapPoint 3d:"<< pt3d.at(0) << " , "<< pt3d.at(1)<< " , "<< pt3d.at(2) <<std::endl;
 
+    Eigen::Vector4d pt4d_eigen(pt3d.at(0), pt3d.at(1), pt3d.at(2), 1.0);
+    Eigen::Vector4d pt4d_Wc_eigen = T_Wc_W * pt4d_eigen;
 
 		geometry_msgs::Point32 p;  // 3d position of MapPoint in W coordinate
-		p.x = pt3d.at(0);
-		p.y = pt3d.at(1);
-		p.z = pt3d.at(2);
+		p.x = pt4d_Wc_eigen[0];
+		p.y = pt4d_Wc_eigen[1];
+		p.z = pt4d_Wc_eigen[2];
 		point_cloud.points.push_back(p);
 		std::advance(lit, 1);  // advancing by 1 after getting the 3d W-coordinate
 
