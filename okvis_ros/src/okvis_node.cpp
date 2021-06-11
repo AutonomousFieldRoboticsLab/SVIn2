@@ -104,7 +104,7 @@ namespace okvis {
     return okvis::kinematics::Transformation(pos, quat);
   }
 
-  bool reset(ThreadedKFVio *okvis_estimator, Publisher *publisher, VioParameters &parameters,
+  bool reset(ThreadedKFVio *okvis_estimator, Publisher *publisher, Subscriber *subscriber, VioParameters &parameters,
              const okvis::kinematics::Transformation &orig_T_Wc_W,
              okvis_ros::OdometryTrigger::Request &request,
              okvis_ros::OdometryTrigger::Response &response) {
@@ -112,26 +112,28 @@ namespace okvis {
     parameters.publishing.T_Wc_W = odometryToTransformation(request.pose) * orig_T_Wc_W;
     new(okvis_estimator) ThreadedKFVio(parameters);
     initEstimator(okvis_estimator, publisher, parameters);
+    subscriber->setT_Wc_W(parameters.publishing.T_Wc_W);
     response.success = true;
     return response.success;
   }
-  bool resetZero(ThreadedKFVio *okvis_estimator, Publisher *publisher, VioParameters &parameters,
+  bool resetZero(ThreadedKFVio *okvis_estimator, Publisher *publisher, Subscriber *subscriber, VioParameters &parameters,
                  const okvis::kinematics::Transformation &orig_T_Wc_W,
                  std_srvs::Trigger::Request &request,
                  std_srvs::Trigger::Response &response) {
     okvis_ros::OdometryTrigger::Request odom_request;
     okvis_ros::OdometryTrigger::Response odom_response;
     odom_request.pose.pose.pose.orientation.w = 1.0;  // Call reset with identity transformation
-    reset(okvis_estimator, publisher, parameters, orig_T_Wc_W, odom_request, odom_response);
+    reset(okvis_estimator, publisher, subscriber, parameters, orig_T_Wc_W, odom_request, odom_response);
     response.success = odom_response.success;
     return response.success;
   }
-  bool smoothReset(Publisher *publisher,
+  bool smoothReset(Publisher *publisher, Subscriber *subscriber,
                    const okvis::kinematics::Transformation &orig_T_Wc_W,
                    okvis_ros::OdometryTrigger::Request &request,
                    okvis_ros::OdometryTrigger::Response &response) {
     okvis::kinematics::Transformation new_T_Wc_W = odometryToTransformation(request.pose) * orig_T_Wc_W;
     publisher->setT_Wc_W(new_T_Wc_W);
+    subscriber->setT_Wc_W(new_T_Wc_W);
     response.success = true;
     return response.success;
   }
@@ -177,15 +179,15 @@ int main(int argc, char **argv)
   ros::ServiceServer srvReset_, srvResetZero_, srvSmoothReset_;
   if (parameters.resetableParams.isResetable) {
     const boost::function<bool(okvis_ros::OdometryTrigger::Request&, okvis_ros::OdometryTrigger::Response&)>
-    resetFunction = std::bind(&okvis::reset, &okvis_estimator, &publisher, parameters, orig_T_Wc_W,
+    resetFunction = std::bind(&okvis::reset, &okvis_estimator, &publisher, &subscriber, parameters, orig_T_Wc_W,
                               std::placeholders::_1, std::placeholders::_2);
 
     const boost::function<bool(std_srvs::Trigger::Request&, std_srvs::Trigger::Response&)>
-    resetZeroFunction = std::bind(&okvis::resetZero, &okvis_estimator, &publisher, parameters, orig_T_Wc_W,
+    resetZeroFunction = std::bind(&okvis::resetZero, &okvis_estimator, &publisher, &subscriber, parameters, orig_T_Wc_W,
                                   std::placeholders::_1, std::placeholders::_2);
 
     const boost::function<bool(okvis_ros::OdometryTrigger::Request&, okvis_ros::OdometryTrigger::Response&)>
-    smoothResetFunction = std::bind(&okvis::smoothReset, &publisher, orig_T_Wc_W,
+    smoothResetFunction = std::bind(&okvis::smoothReset, &publisher, &subscriber, orig_T_Wc_W,
                                     std::placeholders::_1, std::placeholders::_2);
 
     srvReset_ = nh.advertiseService("reset", resetFunction);

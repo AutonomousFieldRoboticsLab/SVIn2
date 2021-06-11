@@ -123,6 +123,10 @@ class Subscriber
   /// @brief Set the node handle. This sets up the callbacks. This is called in the constructor.
   void setNodeHandle(ros::NodeHandle& nh);
 
+  /// @brief Set custom world transformation for reloc callback @Hunter
+  void setT_Wc_W(okvis::kinematics::Transformation T_Wc_W);
+
+
  protected:
   /// @name ROS callbacks
   /// @{
