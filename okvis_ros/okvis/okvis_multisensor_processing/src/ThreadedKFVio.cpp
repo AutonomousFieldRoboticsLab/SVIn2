@@ -1525,8 +1525,11 @@ void ThreadedKFVio::optimizationLoop() {
 							cv::KeyPoint cvkeypoint; // Associated 2D point in left image to publish
 							frame_pairs->getCvKeypoint(CamIndexA, (mit->first).keypointIndex, cvkeypoint);
 
-                                                        if ((mit->first).keypointIndex >= frame_pairs->numKeypoints(CamIndexA)) // TODO Sharmin: check--> to avoid segfault for being keypoiny out-of-range
-                                                                continue;
+              if ((mit->first).keypointIndex >= frame_pairs->numKeypoints(CamIndexA)) {  // TODO Sharmin: check--> to avoid segfault for being keypoiny out-of-range
+                LOG(ERROR) << "Keypoint " << (mit->first).keypointIndex << " out of bounds ("
+                           << frame_pairs->numKeypoints(CamIndexA) << ")";
+                break;
+              }
 
 							std::vector<double> pt_id_w_uv;
 							if (isnan(cvkeypoint.pt.x) || isnan(cvkeypoint.pt.y) || isnan(cvkeypoint.size))   // TODO Sharmin: Better way to fix this?
