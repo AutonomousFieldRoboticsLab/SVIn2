@@ -13,7 +13,7 @@ import message_filters
 
 class histogram_equalize:
 
-    def __init__(self):
+    def __init__(self, approximate_sync=True):
 
         self.left_subscriber = message_filters.Subscriber("/left/image_rect",Image, queue_size = 1000)
         self.right_subscriber = message_filters.Subscriber("/right/image_rect",Image, queue_size = 1000)
@@ -30,7 +30,9 @@ class histogram_equalize:
 
         self.histenhance = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(5,5))
 
-        self.time_sync = message_filters.ApproximateTimeSynchronizer([self.left_subscriber,self.right_subscriber], 1000, 0.1)
+        Synchronizer = message_filters.ApproximateTimeSynchronizer if approximate_sync else message_filters.TimeSynchronizer
+        slop = {1} if approximate_sync else {}
+        self.time_sync = Synchronizer([self.left_subscriber,self.right_subscriber], 100, *slop)
 
         self.time_sync.registerCallback(self.img_callback)
 
@@ -67,7 +69,8 @@ class histogram_equalize:
 
 
 if __name__ == "__main__":
-    histogram_equalize = histogram_equalize()
+    approximate_sync = rospy.get_param("~approximate_sync", True)
+    histogram_equalize = histogram_equalize(approximate_sync)
     bridge = CvBridge()
     rospy.init_node('histogram_equalize', anonymous=True)
     while(not rospy.is_shutdown()):
