@@ -26,19 +26,17 @@
 #include <okvis_ros/SvinHealth.h>  // for svin_health publisher
 #include "KFMatcher.h"
 
+// Hunter
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/exact_time.h>
+#include <message_filters/sync_policies/approximate_time.h>
+
 using namespace std;
 
 map<int, KFMatcher*> kfMapper_;// Mapping between kf_index and KFMatcher*; to make KFcounter
 
-queue<nav_msgs::Odometry::ConstPtr> PEPoseBuffer_; // PE pose buffer
-queue<okvis_ros::SvinHealth::ConstPtr> svinHealthBuffer_;  // svin health buffer
-
-queue<sensor_msgs::ImageConstPtr> imageBuffer_;
-queue<sensor_msgs::PointCloudConstPtr> pclBuffer_;
-queue<nav_msgs::Odometry::ConstPtr> kfPoseBuffer_;
 queue<Eigen::Vector3d> svinOdomBuffer_;
-std::mutex measurementMutex_;
-std::mutex processMutex_;
 int frame_index  = 0;
 int sequence = 1;
 LoopClosing posegraph;
@@ -74,44 +72,6 @@ std::string SVIN_W_LOOP_PATH;
 CameraPoseVisualization cameraposevisual(1, 0, 0, 1);
 Eigen::Vector3d last_t(-100, -100, -100);
 double last_image_time = -1;
-
-// Primitive Estimator
-void peCallback(const nav_msgs::Odometry::ConstPtr& msg)
-{
-	std::lock_guard<std::mutex> l(measurementMutex_);
-	PEPoseBuffer_.push(msg);
-}
-// SVIN health callback
-void healthCallback(const okvis_ros::SvinHealthConstPtr& msg)
-{
-	std::lock_guard<std::mutex> l(measurementMutex_);
-    svinHealthBuffer_.push(msg);
-}
-
-
-void kfCallback(const sensor_msgs::ImageConstPtr& msg)
-{
-	std::lock_guard<std::mutex> l(measurementMutex_);
-    imageBuffer_.push(msg);
-
-    // detect unstable camera stream
-    if (last_image_time == -1)
-        last_image_time = msg->header.stamp.toSec();
-
-    last_image_time = msg->header.stamp.toSec();
-}
-
-void pclCallback(const sensor_msgs::PointCloudConstPtr& msg)
-{
-	std::lock_guard<std::mutex> l(measurementMutex_);
-    pclBuffer_.push(msg);
-}
-
-void kfPoseCallback(const nav_msgs::Odometry::ConstPtr& msg)
-{
-	std::lock_guard<std::mutex> l(measurementMutex_);
-    kfPoseBuffer_.push(msg);
-}
 
 void svinCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
@@ -176,56 +136,14 @@ void svinCallback(const nav_msgs::Odometry::ConstPtr& msg)
     pubKfOdom.publish(key_odometrys);
 }
 
-void processMeasurements()
-{
-    while (true)
-    {
-        sensor_msgs::ImageConstPtr image_msg = nullptr;
-        sensor_msgs::PointCloudConstPtr point_msg = nullptr;
-        nav_msgs::Odometry::ConstPtr pose_msg = nullptr;
-
-        // timestamp synchronization
-        {
-			std::lock_guard<std::mutex> l(measurementMutex_);
-			if(!imageBuffer_.empty() && !pclBuffer_.empty() && !kfPoseBuffer_.empty())
-			{
-			   if (imageBuffer_.front()->header.stamp.toSec() > kfPoseBuffer_.front()->header.stamp.toSec())
-			   {
-				   kfPoseBuffer_.pop();
-				   printf("Throw away pose at beginning\n");
-			   }
-			   else if (imageBuffer_.front()->header.stamp.toSec() > pclBuffer_.front()->header.stamp.toSec())
-			   {
-				   pclBuffer_.pop();
-				   printf("Throw away pointcloud at beginning\n");
-			   }
-			   else if (imageBuffer_.back()->header.stamp.toSec() >= kfPoseBuffer_.front()->header.stamp.toSec()
-				   && pclBuffer_.back()->header.stamp.toSec() >= kfPoseBuffer_.front()->header.stamp.toSec())
-			   {
-				   pose_msg = kfPoseBuffer_.front();
-				   kfPoseBuffer_.pop();
-				   while (!kfPoseBuffer_.empty())
-					   kfPoseBuffer_.pop();
-				   while (imageBuffer_.front()->header.stamp.toSec() < pose_msg->header.stamp.toSec())
-					   imageBuffer_.pop();
-				   image_msg = imageBuffer_.front();
-				   imageBuffer_.pop();
-
-				   while (pclBuffer_.front()->header.stamp.toSec() < pose_msg->header.stamp.toSec())
-					   pclBuffer_.pop();
-				   point_msg = pclBuffer_.front();
-				   pclBuffer_.pop();
-			   }
-			}
-        }
-
-
-        if (pose_msg != NULL)
-        {
+void processMeasurements(const sensor_msgs::ImageConstPtr& image_msg,
+                         const sensor_msgs::PointCloudConstPtr& point_msg,
+                         const nav_msgs::Odometry::ConstPtr& pose_msg,
+                         const okvis_ros::SvinHealth::ConstPtr& health_msg=nullptr) {
             if (skip_cnt < SKIP_CNT)
             {
                 skip_cnt++;
-                continue;
+                return;
             }
             else
             {
@@ -329,20 +247,11 @@ void processMeasurements()
 
                 kfMapper_.insert(std::make_pair(kf_index, keyframe));
 
-
-                {
-                	std::lock_guard<std::mutex> l(processMutex_);
 					start_flag = 1;
 					posegraph.addKFToPoseGraph(keyframe, 1);
-                }
                 frame_index++;
                 last_t = T;
             }
-        }
-
-        std::chrono::milliseconds dura(5);
-        std::this_thread::sleep_for(dura);
-    }
 }
 
 static std::string getTimeStr(){
@@ -414,6 +323,19 @@ void readParameters(ros::NodeHandle& nh)
 	fout.close();
 	fsSettings.release();
 }
+
+#define MAKE_SYNCHRONIZER_4(name, Policy, sub1, sub2, sub3, sub4, type4, callback, queue_size, connect) \
+    typedef message_filters::sync_policies::Policy<sensor_msgs::Image, sensor_msgs::PointCloud, nav_msgs::Odometry, type4> name ## policy; \
+    message_filters::Synchronizer<name ## policy> name(name ## policy(queue_size)); \
+    if (connect) { \
+        name.connectInput(sub1, sub2, sub3, sub4); \
+        name.registerCallback(callback); \
+    }
+#define MAKE_SYNCHRONIZER_3(name, Policy, sub1, sub2, sub3, callback, queue_size, connect) \
+    message_filters::NullFilter<message_filters::NullType> name ## M4; \
+    MAKE_SYNCHRONIZER_4(name, Policy, sub1, sub2, sub3, name ## M4, message_filters::NullType, \
+                        boost::bind(callback, _1, _2, _3, nullptr), queue_size, connect)
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "pose_graph");
@@ -423,28 +345,45 @@ int main(int argc, char **argv)
     // read parameters
     readParameters(nh);
 
+    // Approx time
+    bool approximate_sync = false;
+    nh.getParam("approximate_sync", approximate_sync);
+
+    // Optional connection to svin_health
+    bool use_health = false;
+    nh.getParam("use_health", use_health);
+
     // Subscribers
     ros::Subscriber subSVIN = nh.subscribe("/okvis_node/relocalization_odometry", 500, svinCallback);
-    ros::Subscriber subKF = nh.subscribe("/okvis_node/keyframe_imageL", 500, kfCallback);
-    ros::Subscriber subKFPose = nh.subscribe("/okvis_node/keyframe_pose", 500, kfPoseCallback);
-    ros::Subscriber subPCL = nh.subscribe("/okvis_node/keyframe_points", 500, pclCallback);
+    message_filters::Subscriber<sensor_msgs::Image> subKF(nh, "/okvis_node/keyframe_imageL", 500);
+    message_filters::Subscriber<sensor_msgs::PointCloud> subPCL(nh, "/okvis_node/keyframe_points", 500);
+    message_filters::Subscriber<nav_msgs::Odometry> subKFPose(nh, "/okvis_node/keyframe_pose", 500);
 
     // For UberEstimator
-    //ros::Subscriber subSVINHealth = nh.subscribe("/okvis_node/svin_health", 10, healthCallback);
     //ros::Subscriber subPEPose = nh.subscribe("/PE_pose", 100, peCallback);  // Primitive Estimator topic
-
+    message_filters::Subscriber<okvis_ros::SvinHealth> subSVINHealth;
+    if (use_health) {
+        subSVINHealth.subscribe(nh, "/okvis_node/svin_health", 500);
+    }
 
     // Publishers
     pubCamPoseVisual = nh.advertise<visualization_msgs::MarkerArray>("camera_pose_visual", 1000);
     pubKfOdom = nh.advertise<visualization_msgs::Marker>("key_odometrys", 1000);
     pubMatchedPoints = nh.advertise<sensor_msgs::PointCloud>("match_points", 100); // to publish matched points after relocalization
 
-    std::thread processLC;
+    // Synchronizer
+    MAKE_SYNCHRONIZER_3(exact_sync, ExactTime, subKF, subPCL, subKFPose,
+                        processMeasurements, 100, !approximate_sync && !use_health);
+    MAKE_SYNCHRONIZER_3(approx_sync, ApproximateTime, subKF, subPCL, subKFPose,
+                        processMeasurements, 100, approximate_sync && !use_health);
+    MAKE_SYNCHRONIZER_4(exact_sync_with_health, ExactTime, subKF, subPCL, subKFPose, subSVINHealth,
+                        okvis_ros::SvinHealth, processMeasurements, 100, !approximate_sync && use_health);
+    MAKE_SYNCHRONIZER_4(approx_sync_with_health, ApproximateTime, subKF, subPCL, subKFPose, subSVINHealth,
+                        okvis_ros::SvinHealth, processMeasurements, 100, approximate_sync && use_health);
 
-    processLC = std::thread(processMeasurements);
-
-
-    ros::spin();
+    ros::AsyncSpinner spinner(2);  // Keep two separate threads - svinCallback and processMeasurements
+    spinner.start();
+    ros::waitForShutdown();
 
     return 0;
 }
