@@ -150,6 +150,10 @@ void processMeasurements(const sensor_msgs::ImageConstPtr& image_msg,
                 skip_cnt = 0;
             }
 
+            if (health_msg != nullptr and !health_msg->isTrackingOk) {
+                return;  // Drop keyframes when tracking fails
+            }
+
             cv_bridge::CvImageConstPtr ptr;
             if (image_msg->encoding == "8UC1")
             {
