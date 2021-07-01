@@ -75,6 +75,8 @@ CameraPoseVisualization cameraposevisual(1, 0, 0, 1);
 Eigen::Vector3d last_t(-100, -100, -100);
 double last_image_time = -1;
 
+bool use_health = false;  // Hunter
+
 // Primitive Estimator
 void peCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
@@ -183,11 +185,12 @@ void processMeasurements()
         sensor_msgs::ImageConstPtr image_msg = nullptr;
         sensor_msgs::PointCloudConstPtr point_msg = nullptr;
         nav_msgs::Odometry::ConstPtr pose_msg = nullptr;
+        okvis_ros::SvinHealthConstPtr health_msg = nullptr;
 
         // timestamp synchronization
         {
 			std::lock_guard<std::mutex> l(measurementMutex_);
-			if(!imageBuffer_.empty() && !pclBuffer_.empty() && !kfPoseBuffer_.empty())
+			if(!imageBuffer_.empty() && !pclBuffer_.empty() && !kfPoseBuffer_.empty() && (!use_health || !svinHealthBuffer_.empty()))
 			{
 			   if (imageBuffer_.front()->header.stamp.toSec() > kfPoseBuffer_.front()->header.stamp.toSec())
 			   {
@@ -199,8 +202,14 @@ void processMeasurements()
 				   pclBuffer_.pop();
 				   printf("Throw away pointcloud at beginning\n");
 			   }
+			   else if (use_health && imageBuffer_.front()->header.stamp.toSec() > svinHealthBuffer_.front()->header.stamp.toSec())
+			   {
+				   svinHealthBuffer_.pop();
+				   printf("Throw away health at beginning\n");
+			   }
 			   else if (imageBuffer_.back()->header.stamp.toSec() >= kfPoseBuffer_.front()->header.stamp.toSec()
-				   && pclBuffer_.back()->header.stamp.toSec() >= kfPoseBuffer_.front()->header.stamp.toSec())
+				   && pclBuffer_.back()->header.stamp.toSec() >= kfPoseBuffer_.front()->header.stamp.toSec()
+				   && (!use_health || svinHealthBuffer_.back()->header.stamp.toSec() >= kfPoseBuffer_.front()->header.stamp.toSec()))
 			   {
 				   pose_msg = kfPoseBuffer_.front();
 				   kfPoseBuffer_.pop();
@@ -215,6 +224,14 @@ void processMeasurements()
 					   pclBuffer_.pop();
 				   point_msg = pclBuffer_.front();
 				   pclBuffer_.pop();
+
+				   if (use_health) {
+					   while (svinHealthBuffer_.front()->header.stamp.toSec() < pose_msg->header.stamp.toSec()) {
+						   svinHealthBuffer_.pop();
+                       }
+					   health_msg = svinHealthBuffer_.front();
+					   svinHealthBuffer_.pop();
+				   }
 			   }
 			}
         }
@@ -423,6 +440,9 @@ int main(int argc, char **argv)
     // read parameters
     readParameters(nh);
 
+    // Optional connection to svin_health
+    nh.getParam("use_health", use_health);
+
     // Subscribers
     ros::Subscriber subSVIN = nh.subscribe("/okvis_node/relocalization_odometry", 500, svinCallback);
     ros::Subscriber subKF = nh.subscribe("/okvis_node/keyframe_imageL", 500, kfCallback);
@@ -430,7 +450,9 @@ int main(int argc, char **argv)
     ros::Subscriber subPCL = nh.subscribe("/okvis_node/keyframe_points", 500, pclCallback);
 
     // For UberEstimator
-    //ros::Subscriber subSVINHealth = nh.subscribe("/okvis_node/svin_health", 10, healthCallback);
+    ros::Subscriber subSVINHealth;
+    if (use_health)
+        subSVINHealth = nh.subscribe("/okvis_node/svin_health", 500, healthCallback);
     //ros::Subscriber subPEPose = nh.subscribe("/PE_pose", 100, peCallback);  // Primitive Estimator topic
 
 
