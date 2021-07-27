@@ -12,7 +12,7 @@ set(OKVIS_VERSION
 option (USE_SYSTEM_BRISK
         "Use brisk via find_package rather than downloading it as part of okvis" OFF) 
 option (USE_SYSTEM_CERES
-        "Use ceres via find_package rather than downloading it as part of okvis" OFF)  # Sharmin turned it on
+        "Use ceres via find_package rather than downloading it as part of okvis" OFF) 
 option (BUILD_APPS
         "Builds a demo app (which requires boost)" ON) 
 option (BUILD_TESTS
@@ -58,9 +58,9 @@ if(APPLE)
   # The clang compiler (on osx) is somehow much more strict
   # than the compilers on ubuntu and so this does not seem
   # possible on OSX just yet.
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wall -std=c++11 -fPIC -g")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wall -std=c++11 -fPIC")
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wall -std=c++11 -fPIC -g")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wall -std=c++11 -fPIC")
 endif()
 
 if(${CMAKE_HOST_SYSTEM_PROCESSOR} MATCHES "arm*")
@@ -111,7 +111,7 @@ if(${USE_SYSTEM_BRISK})
   message(STATUS "Using system brisk. Found at ${BRISK_INCLUDE_DIRS}.")
 else()
   ExternalProject_Add(brisk_external
-    URL "https://www.doc.ic.ac.uk/~sleutene/software/brisk-2.0.3.zip"    
+    URL "https://www.doc.ic.ac.uk/~sleutene/software/brisk-2.0.5.zip"    
     INSTALL_DIR ${CMAKE_BINARY_DIR}
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR> -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/brisk
@@ -152,6 +152,7 @@ else()
     GIT_TAG ${CERES_TAG}
     UPDATE_COMMAND ""
     INSTALL_DIR ${CMAKE_BINARY_DIR}
+    PATCH_COMMAND patch internal/ceres/schur_eliminator.h < ${CMAKE_CURRENT_SOURCE_DIR}/ceres.patch
     CMAKE_ARGS 
       -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR> 
       -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
@@ -187,7 +188,7 @@ else()
                ${CMAKE_BINARY_DIR}/${CERES_LIB_PREFIX}/libceres.a )
   endif ()
    
-  find_package(OpenMP REQUIRED)   # Sharmin changed it from QUIET to REQUIRED
+  find_package(OpenMP QUIET)
   if (OPENMP_FOUND)
     message(STATUS "OpenMP found")
     add_definitions(-DUSE_OPENMP)
