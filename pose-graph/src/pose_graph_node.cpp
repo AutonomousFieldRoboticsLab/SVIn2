@@ -249,6 +249,10 @@ void processMeasurements()
                 skip_cnt = 0;
             }
 
+            if (use_health && health_msg != NULL && !health_msg->isTrackingOk) {
+                continue;
+            }
+
             cv_bridge::CvImageConstPtr ptr;
             if (image_msg->encoding == "8UC1")
             {
